@@ -795,10 +795,15 @@ def run_stochastic_pricing_fast(
     # Pre-calculate flight exposure values (vectorized)
     flight_base_losses = (sov_enriched['reroute_cost_usd'] * sov_enriched['route_exposure']).values
     
-    # Sample years if requested
+    # The catalogue year range includes years with no events. Keep those years
+    # in full-catalogue results so AAL and return periods use the true horizon.
     catalogue = stochastic_catalogue
+    unique_years = catalogue[year_col].unique()
+    full_catalogue_years = np.arange(
+        int(stochastic_catalogue[year_col].min()),
+        int(stochastic_catalogue[year_col].max()) + 1,
+    )
     if sample_size is not None:
-        unique_years = catalogue[year_col].unique()
         if len(unique_years) > sample_size:
             sampled_years = np.random.choice(unique_years, size=sample_size, replace=False)
             catalogue = catalogue[catalogue[year_col].isin(sampled_years)]
@@ -811,7 +816,7 @@ def run_stochastic_pricing_fast(
     
     if catalogue.empty:
         # No triggering events
-        num_years = sample_size if sample_size else stochastic_catalogue[year_col].nunique()
+        num_years = sample_size if sample_size else len(full_catalogue_years)
         return (
             pd.DataFrame(),
             pd.DataFrame({'simulation_year': range(num_years), 'annual_loss': 0.0, 'oep_loss': 0.0,
@@ -880,7 +885,7 @@ def run_stochastic_pricing_fast(
     annual_results = pd.DataFrame(annual_records)
     
     # Preserve zero-loss years so full-catalogue runs report the actual simulation period.
-    target_years = unique_years if sample_size is None else (
+    target_years = full_catalogue_years if sample_size is None else (
         unique_years if len(unique_years) <= sample_size else sampled_years
     )
     if len(annual_results) < len(target_years):
