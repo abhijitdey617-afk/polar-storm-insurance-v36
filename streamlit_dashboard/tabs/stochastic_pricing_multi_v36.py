@@ -655,7 +655,7 @@ def render_single_airline_pricing(manager):
             use_fast=use_sampling,  # False for 100k (exact), True for <100k (sampled)
             sample_size=sample_size
         )
-        metrics['SimulationYears'] = len(annual_results)
+        metrics['SimulationYears'] = min(sample_size, num_years)
         metrics['CatalogueYears'] = num_years
         
         # Step 4: Finalizing (90% -> 100%)
@@ -914,7 +914,7 @@ def render_all_airlines_pricing(manager):
                 use_fast=use_sampling,
                 sample_size=bulk_sample_size
             )
-            metrics['SimulationYears'] = len(annual_results)
+            metrics['SimulationYears'] = min(bulk_sample_size, num_years)
             metrics['CatalogueYears'] = num_years
             
             loss_ratio = (metrics['AAL'] / premium_calc['GrossPremium']) * 100
