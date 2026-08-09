@@ -798,15 +798,20 @@ def run_stochastic_pricing_fast(
     # The catalogue year range includes years with no events. Keep those years
     # in full-catalogue results so AAL and return periods use the true horizon.
     catalogue = stochastic_catalogue
-    unique_years = catalogue[year_col].unique()
     full_catalogue_years = np.arange(
         int(stochastic_catalogue[year_col].min()),
         int(stochastic_catalogue[year_col].max()) + 1,
     )
+    target_years = full_catalogue_years
     if sample_size is not None:
-        if len(unique_years) > sample_size:
-            sampled_years = np.random.choice(unique_years, size=sample_size, replace=False)
-            catalogue = catalogue[catalogue[year_col].isin(sampled_years)]
+        sample_year_count = min(int(sample_size), len(full_catalogue_years))
+        if sample_year_count < len(full_catalogue_years):
+            target_years = np.random.choice(
+                full_catalogue_years,
+                size=sample_year_count,
+                replace=False,
+            )
+            catalogue = catalogue[catalogue[year_col].isin(target_years)]
     
     # Pre-filter: Remove non-triggering events
     catalogue = catalogue[
@@ -816,10 +821,9 @@ def run_stochastic_pricing_fast(
     
     if catalogue.empty:
         # No triggering events
-        num_years = sample_size if sample_size else len(full_catalogue_years)
         return (
             pd.DataFrame(),
-            pd.DataFrame({'simulation_year': range(num_years), 'annual_loss': 0.0, 'oep_loss': 0.0,
+            pd.DataFrame({'simulation_year': target_years, 'annual_loss': 0.0, 'oep_loss': 0.0,
                           'ground_up_loss': 0.0, 'ground_up_oep_loss': 0.0,
                           'aggregate_exhausted': False}),
             {'AAL': 0.0, 'SD': 0.0, 'CV': np.nan, 'TVaR_99': 0.0}
@@ -885,9 +889,6 @@ def run_stochastic_pricing_fast(
     annual_results = pd.DataFrame(annual_records)
     
     # Preserve zero-loss years so full-catalogue runs report the actual simulation period.
-    target_years = full_catalogue_years if sample_size is None else (
-        unique_years if len(unique_years) <= sample_size else sampled_years
-    )
     if len(annual_results) < len(target_years):
         all_years = set(target_years)
         simulated_years = set(annual_results['simulation_year'].unique())
