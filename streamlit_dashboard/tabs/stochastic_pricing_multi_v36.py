@@ -872,11 +872,12 @@ def render_all_airlines_pricing(manager):
             detail_text.text(f"🎲 Running {bulk_sample_size:,} year simulation for {config_obj.airline_name}... ({int(sub_progress * 100)}%)")
             progress_bar.progress(sub_progress)
             
+            use_sampling = (bulk_sample_size < 100000)
             event_results, annual_results, metrics, premium_calc = run_stochastic_pricing_with_config(
                 enriched_sov,
                 stochastic_catalogue,
                 policy,
-                use_fast=True,
+                use_fast=use_sampling,
                 sample_size=bulk_sample_size
             )
             

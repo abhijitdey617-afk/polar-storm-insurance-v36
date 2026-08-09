@@ -871,9 +871,9 @@ def run_stochastic_pricing_fast(
     event_results = pd.DataFrame(event_records)
     annual_results = pd.DataFrame(annual_records)
     
-    # Pad with zero-loss years if we sampled
+    # Pad with zero-loss years when filtering removed every event in a sampled year.
     if sample_size and len(annual_results) < sample_size:
-        all_years = set(range(sample_size))
+        all_years = set(unique_years if len(unique_years) <= sample_size else sampled_years)
         simulated_years = set(annual_results['simulation_year'].unique())
         missing_years = all_years - simulated_years
         
