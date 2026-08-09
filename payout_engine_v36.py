@@ -814,7 +814,9 @@ def run_stochastic_pricing_fast(
         num_years = sample_size if sample_size else stochastic_catalogue[year_col].nunique()
         return (
             pd.DataFrame(),
-            pd.DataFrame({'simulation_year': range(num_years), 'annual_loss': 0.0, 'oep_loss': 0.0, 'aggregate_exhausted': False}),
+            pd.DataFrame({'simulation_year': range(num_years), 'annual_loss': 0.0, 'oep_loss': 0.0,
+                          'ground_up_loss': 0.0, 'ground_up_oep_loss': 0.0,
+                          'aggregate_exhausted': False}),
             {'AAL': 0.0, 'SD': 0.0, 'CV': np.nan, 'TVaR_99': 0.0}
         )
     
@@ -827,17 +829,21 @@ def run_stochastic_pricing_fast(
         remaining_aggregate = policy_terms.annual_aggregate
         annual_loss = 0.0
         annual_max_event_loss = 0.0
+        ground_up_annual_loss = 0.0
+        ground_up_max_event_loss = 0.0
 
         for _, event in year_events.iterrows():
-            if remaining_aggregate <= 0:
-                break  # Early exit - aggregate exhausted
-                
             peak_pfu = float(event[peak_pfu_col])
             tier_mult = float(event['tier_multiplier'])
             
             # Vectorized flight loss calculation
             flight_losses = flight_base_losses * tier_mult
             gross_event_loss = float(flight_losses.sum())
+            ground_up_annual_loss += gross_event_loss
+            ground_up_max_event_loss = max(ground_up_max_event_loss, gross_event_loss)
+
+            if remaining_aggregate <= 0:
+                continue
             
             # Apply policy terms
             after_deductible = max(0.0, gross_event_loss - policy_terms.event_deductible)
@@ -865,6 +871,8 @@ def run_stochastic_pricing_fast(
             "simulation_year": year,
             "annual_loss": annual_loss,
             "oep_loss": annual_max_event_loss,
+            "ground_up_loss": ground_up_annual_loss,
+            "ground_up_oep_loss": ground_up_max_event_loss,
             "aggregate_exhausted": annual_loss >= policy_terms.annual_aggregate,
         })
 
@@ -918,11 +926,13 @@ def run_stochastic_pricing(
         remaining_aggregate = policy_terms.annual_aggregate
         annual_loss = 0.0
         annual_max_event_loss = 0.0
+        ground_up_annual_loss = 0.0
+        ground_up_max_event_loss = 0.0
 
         for _, event in year_events.iterrows():
             peak_pfu = float(event[peak_pfu_col])
             event_duration = float(event.get(duration_col, min_duration_hours))
-            if peak_pfu < pfu_trigger or event_duration < min_duration_hours or remaining_aggregate <= 0:
+            if peak_pfu < pfu_trigger or event_duration < min_duration_hours:
                 continue
 
             event_policy = PolicyTerms(policy_terms.per_event_limit, policy_terms.event_deductible,
@@ -931,6 +941,10 @@ def run_stochastic_pricing(
                                                   settlement_basis="STOCHASTIC_SCHEDULED_EXPOSED_FLIGHT")
 
             final_payout = event_result.final_event_payout
+            ground_up_annual_loss += event_result.gross_event_loss
+            ground_up_max_event_loss = max(ground_up_max_event_loss, event_result.gross_event_loss)
+            if remaining_aggregate <= 0:
+                continue
             remaining_aggregate = event_result.remaining_aggregate_after_event
             annual_loss += final_payout
             annual_max_event_loss = max(annual_max_event_loss, final_payout)
@@ -952,6 +966,8 @@ def run_stochastic_pricing(
             "simulation_year": year,
             "annual_loss": annual_loss,
             "oep_loss": annual_max_event_loss,
+            "ground_up_loss": ground_up_annual_loss,
+            "ground_up_oep_loss": ground_up_max_event_loss,
             "aggregate_exhausted": annual_loss >= policy_terms.annual_aggregate,
         })
 
@@ -1029,6 +1045,23 @@ def calculate_pricing_metrics(
         "TVaR_99": tvar(losses, 0.99),
         "TVaR_995": tvar(losses, 0.995),
     }
+
+    if 'ground_up_loss' in annual_results.columns:
+        ground_up_losses = pd.to_numeric(annual_results['ground_up_loss'], errors='coerce').fillna(0.0)
+        ground_up_oep_losses = pd.to_numeric(
+            annual_results.get('ground_up_oep_loss', annual_results['ground_up_loss']),
+            errors='coerce',
+        ).fillna(0.0)
+        metrics.update({
+            "GroundUp_AAL": float(ground_up_losses.mean()),
+            "GroundUp_AEP_1in100": return_period_loss(ground_up_losses, 100),
+            "GroundUp_AEP_1in200": return_period_loss(ground_up_losses, 200),
+            "GroundUp_OEP_1in100": return_period_loss(ground_up_oep_losses, 100),
+            "GroundUp_OEP_1in200": return_period_loss(ground_up_oep_losses, 200),
+            "GroundUp_MetricsAvailable": True,
+        })
+    else:
+        metrics["GroundUp_MetricsAvailable"] = False
     
     # Calculate tier-wise AAL contributions
     if event_results is not None and not event_results.empty and 'severity_tier' in event_results.columns:

@@ -157,6 +157,11 @@ def assess_pricing_adequacy(metrics, premium_calc, total_tiv, config):
         'warnings': [],
         'recommendations': [],
         'red_flags': [],
+        'critical_actions': [],
+        'pricing_actions': [],
+        'coverage_actions': [],
+        'risk_transfer_actions': [],
+        'simulation_confidence': {},
         'loss_ratio': 0.0,
         'tail_risk_ratio': 0.0,
         'limit_coverage_pct': 100.0,
@@ -175,19 +180,19 @@ def assess_pricing_adequacy(metrics, premium_calc, total_tiv, config):
     if loss_ratio > 85:
         assessment['red_flags'].append(f"⛔ CRITICAL: Loss ratio {loss_ratio:.1f}% exceeds 85% — premium too low")
         assessment['status'] = 'INADEQUATE'
-        assessment['recommendations'].append(
+        assessment['pricing_actions'].append(
             f"Increase gross premium by ~{((loss_ratio / 65) - 1) * 100:.0f}% to target a 65% loss ratio "
             f"(suggested premium: ${gross_premium * (loss_ratio / 65):,.0f})"
         )
     elif loss_ratio > 75:
         assessment['warnings'].append(f"⚠️ Loss ratio {loss_ratio:.1f}% is high (target: 60–70%)")
         assessment['status'] = 'MARGINAL'
-        assessment['recommendations'].append(
+        assessment['pricing_actions'].append(
             f"Raise premium by 10–15% (to ~${gross_premium * 1.12:,.0f}) or reduce per-event/aggregate limits"
         )
     elif loss_ratio < 50 and aal > 0:
         assessment['warnings'].append(f"⚠️ Loss ratio {loss_ratio:.1f}% is very low — potentially overpriced")
-        assessment['recommendations'].append(
+        assessment['pricing_actions'].append(
             f"Consider reducing premium by 10–15% (to ~${gross_premium * 0.88:,.0f}) to improve competitiveness"
         )
 
@@ -196,9 +201,7 @@ def assess_pricing_adequacy(metrics, premium_calc, total_tiv, config):
     if not np.isnan(cv):
         if cv > 3.0:
             assessment['warnings'].append(f"⚠️ High volatility (CV={cv:.2f}, SD=${sd:,.0f}) — losses are unpredictable")
-            assessment['recommendations'].append(
-                "Increase annual aggregate limit or raise cost-of-capital / risk load in premium settings"
-            )
+            assessment['pricing_actions'].append("Increase risk load or cost-of-capital allowance to reflect volatility")
             if assessment['status'] == 'ADEQUATE':
                 assessment['status'] = 'MARGINAL'
         elif cv > 2.0:
@@ -217,12 +220,10 @@ def assess_pricing_adequacy(metrics, premium_calc, total_tiv, config):
             f"⛔ CRITICAL: Extreme tail volatility (TVaR/AAL = {tail_risk_ratio:.1f}x exceeds 14x threshold)"
         )
         assessment['status'] = 'INADEQUATE'
-        assessment['recommendations'].append(
+        assessment['risk_transfer_actions'].append(
             f"Portfolio restructuring required — tail risk ratio {tail_risk_ratio:.1f}x indicates extreme concentration in high-risk scenarios"
         )
-        assessment['recommendations'].append(
-            "Consider: (1) limiting high-exposure routes, (2) catastrophe XL reinsurance, or (3) fundamental product redesign"
-        )
+        assessment['risk_transfer_actions'].append("Obtain catastrophe excess-of-loss reinsurance or diversify concentrated routes before booking")
     elif tail_risk_ratio > 5.0:
         # MARGINAL status: profitable but volatile (typical for parametric polar storm coverage)
         assessment['warnings'].append(
@@ -234,15 +235,8 @@ def assess_pricing_adequacy(metrics, premium_calc, total_tiv, config):
         # Recommendations focus on tail risk management, not limit increases (which don't reduce the ratio)
         tvar_99 = metrics.get('TVaR_99', 0.0)
         suggested_xs_attach = tvar_99 * 0.4  # Stop-loss above 40% of TVaR
-        assessment['recommendations'].append(
-            f"Monitor tail exposure — portfolio is profitable but volatile (typical for parametric polar products)"
-        )
-        assessment['recommendations'].append(
-            f"Consider stop-loss reinsurance attaching around ${suggested_xs_attach:,.0f} per event to cap tail losses"
-        )
-        assessment['recommendations'].append(
-            "Evaluate catastrophe excess reinsurance or portfolio diversification to reduce tail concentration"
-        )
+        assessment['risk_transfer_actions'].append(f"Consider stop-loss reinsurance attaching around ${suggested_xs_attach:,.0f} per event to address tail volatility")
+        assessment['risk_transfer_actions'].append("Evaluate catastrophe excess reinsurance or portfolio diversification to reduce tail concentration")
     elif tail_risk_ratio > 3.5:
         assessment['warnings'].append(f"⚠️ Moderate tail risk (TVaR/AAL = {tail_risk_ratio:.1f}x)")
 
@@ -252,7 +246,10 @@ def assess_pricing_adequacy(metrics, premium_calc, total_tiv, config):
     elif rate_on_line > 15.0:
         assessment['warnings'].append(f"⚠️ Very high RoL ({rate_on_line:.2f}%) — may be uncompetitive")
 
-    rp_100_oep = metrics.get('OEP_1in100', 0.0) or 0.0
+    capped_oep_100 = metrics.get('OEP_1in100', 0.0) or 0.0
+    capped_aep_200 = metrics.get('AEP_1in200', 0.0) or 0.0
+    ground_up_available = bool(metrics.get('GroundUp_MetricsAvailable', False))
+    rp_100_oep = (metrics.get('GroundUp_OEP_1in100', capped_oep_100) if ground_up_available else capped_oep_100) or 0.0
     limit_coverage = (per_event_limit / rp_100_oep * 100) if rp_100_oep > 0 else 100.0
     assessment['limit_coverage_pct'] = limit_coverage
 
@@ -261,18 +258,14 @@ def assess_pricing_adequacy(metrics, premium_calc, total_tiv, config):
             f"⛔ CRITICAL: 100-year OEP loss (${rp_100_oep:,.0f}) exceeds per-event limit (${per_event_limit:,.0f})"
         )
         assessment['status'] = 'INADEQUATE'
-        assessment['recommendations'].append(
-            f"Increase per-event limit to at least ${rp_100_oep * 1.1:,.0f} (110% of 100-year OEP RP)"
-        )
+        assessment['critical_actions'].append(f"Increase per-event limit to at least ${rp_100_oep * 1.1:,.0f} (110% of the uncapped 100-year OEP benchmark)")
     elif limit_coverage < 120 and rp_100_oep > 0:
         assessment['warnings'].append(
             f"⚠️ Per-event limit covers only {limit_coverage:.0f}% of 100-year OEP RP (${rp_100_oep:,.0f})"
         )
-        assessment['recommendations'].append(
-            f"Consider raising per-event limit to ${rp_100_oep * 1.2:,.0f} for adequate tail protection"
-        )
+        assessment['coverage_actions'].append(f"Review per-event limit against the uncapped 100-year OEP benchmark (${rp_100_oep:,.0f})")
 
-    rp_200_aep = metrics.get('AEP_1in200', 0.0) or 0.0
+    rp_200_aep = (metrics.get('GroundUp_AEP_1in200', capped_aep_200) if ground_up_available else capped_aep_200) or 0.0
     aggregate_coverage = (annual_aggregate / rp_200_aep * 100) if rp_200_aep > 0 else 100.0
     assessment['aggregate_coverage_pct'] = aggregate_coverage
 
@@ -280,7 +273,7 @@ def assess_pricing_adequacy(metrics, premium_calc, total_tiv, config):
         assessment['warnings'].append(
             f"⚠️ 200-year AEP loss (${rp_200_aep:,.0f}) exceeds annual aggregate (${annual_aggregate:,.0f})"
         )
-        assessment['recommendations'].append(
+        assessment['coverage_actions'].append(
             f"Increase annual aggregate to at least ${rp_200_aep * 1.2:,.0f} (120% of 200-year AEP RP)"
         )
         if assessment['status'] == 'ADEQUATE':
@@ -295,9 +288,7 @@ def assess_pricing_adequacy(metrics, premium_calc, total_tiv, config):
             f"⚠️ Deductible (${deductible:,.0f}) exceeds 50% of AAL (${aal:,.0f}) — may suppress recoveries"
         )
         suggested_deductible = max(aal * 0.15, 0)
-        assessment['recommendations'].append(
-            f"Consider lowering event deductible to ~${suggested_deductible:,.0f} (≈15% of AAL)"
-        )
+        assessment['coverage_actions'].append("Review the event deductible against claims frequency, attachment probability, and contract terms; no automatic target is recommended")
     elif deductible > rp_100_oep * 0.25 and rp_100_oep > 0:
         assessment['warnings'].append(
             f"⚠️ Deductible (${deductible:,.0f}) is high relative to 100-year OEP RP (${rp_100_oep:,.0f})"
@@ -308,9 +299,7 @@ def assess_pricing_adequacy(metrics, premium_calc, total_tiv, config):
         assessment['warnings'].append(
             f"⚠️ Aggregate exhaustion probability is {agg_exhaust_prob:.1%} — limit may bind frequently"
         )
-        assessment['recommendations'].append(
-            f"Raise annual aggregate above ${metrics.get('AEP_1in100', annual_aggregate):,.0f} (100-year AEP RP)"
-        )
+        assessment['coverage_actions'].append("Review annual aggregate exhaustion and consider additional aggregate capacity above the uncapped benchmark")
 
     tvar_gap = metrics.get('TVaR_99', 0.0) - aal
     if tvar_gap > 0 and premium_calc.get('RiskLoad') is not None:
@@ -319,14 +308,36 @@ def assess_pricing_adequacy(metrics, premium_calc, total_tiv, config):
             assessment['warnings'].append(
                 f"⚠️ Low capital buffer ({capital_buffer:.1%}) — premium may undercharge for tail risk"
             )
-            assessment['recommendations'].append(
+            assessment['pricing_actions'].append(
                 "Increase cost of capital or profit load in Configuration → Premium Parameters"
             )
 
     if assessment['status'] == 'ADEQUATE' and not assessment['warnings']:
-        assessment['recommendations'].append(
+        assessment['coverage_actions'].append(
             "Current limits, deductible, and premium appear well-calibrated — no major adjustments needed"
         )
+
+    simulation_years = int(metrics.get('SimulationYears', 0) or 0)
+    catalogue_years = int(metrics.get('CatalogueYears', 0) or 0)
+    coverage_pct = (simulation_years / catalogue_years * 100) if catalogue_years else 0.0
+    assessment['simulation_confidence'] = {
+        'simulation_years': simulation_years,
+        'catalogue_years': catalogue_years,
+        'catalogue_coverage_pct': coverage_pct,
+        'is_full_catalogue': bool(catalogue_years and simulation_years >= catalogue_years),
+        'is_capped_comparison': not ground_up_available,
+    }
+    if simulation_years and catalogue_years and simulation_years < catalogue_years:
+        assessment['warnings'].append(
+            f"Simulation confidence: {simulation_years:,} of {catalogue_years:,} catalogue years used; validate with the full catalogue before booking"
+        )
+    if not ground_up_available:
+        assessment['warnings'].append("Limit comparisons use policy-capped losses; uncovered ground-up exposure could not be assessed")
+
+    assessment['recommendations'] = (
+        assessment['critical_actions'] + assessment['pricing_actions'] +
+        assessment['coverage_actions'] + assessment['risk_transfer_actions']
+    )
 
     return assessment
 
@@ -431,15 +442,19 @@ def render_risk_assessment_panel(metrics, premium_calc, config_obj, assessment=N
     else:
         st.error(status_labels['INADEQUATE'])
 
-    summary_col1, summary_col2, summary_col3, summary_col4 = st.columns(4)
+    summary_col1, summary_col2, summary_col3, summary_col4, summary_col5, summary_col6 = st.columns(6)
     with summary_col1:
-        st.metric("Loss Ratio", f"{assessment['loss_ratio']:.1f}%", help="Target: 60–70%")
+        st.metric("AAL", f"${metrics.get('AAL', 0):,.0f}")
     with summary_col2:
-        st.metric("Tail Risk (TVaR/AAL)", f"{assessment['tail_risk_ratio']:.2f}x", help="Target: ≤5.0x (Adequate), 5-14x (Marginal - typical for parametric products), >14x (Inadequate)")
+        st.metric("Premium", f"${premium_calc.get('GrossPremium', 0):,.0f}")
     with summary_col3:
-        st.metric("Limit vs 100-yr OEP", f"{assessment['limit_coverage_pct']:.0f}%", help="Target: ≥120%")
+        st.metric("Loss Ratio", f"{assessment['loss_ratio']:.1f}%", help="Target: 60–70%")
     with summary_col4:
-        st.metric("Agg vs 200-yr AEP", f"{assessment['aggregate_coverage_pct']:.0f}%", help="Target: ≥120%")
+        st.metric("TVaR 99%", f"${metrics.get('TVaR_99', 0):,.0f}")
+    with summary_col5:
+        st.metric("Limit vs 100-yr OEP", f"{assessment['limit_coverage_pct']:.0f}%", help="Ground-up benchmark when available")
+    with summary_col6:
+        st.metric("Agg vs 200-yr AEP", f"{assessment['aggregate_coverage_pct']:.0f}%", help="Ground-up benchmark when available")
 
     if assessment['red_flags']:
         for flag in assessment['red_flags']:
@@ -447,10 +462,27 @@ def render_risk_assessment_panel(metrics, premium_calc, config_obj, assessment=N
     if assessment['warnings']:
         for warning in assessment['warnings']:
             st.warning(warning)
-    if assessment['recommendations']:
-        st.markdown("**Suggested adjustments:**")
-        for idx, rec in enumerate(assessment['recommendations'], 1):
-            st.info(f"{idx}. {rec}")
+    recommendation_sections = [
+        ('Critical actions', 'critical_actions'),
+        ('Pricing actions', 'pricing_actions'),
+        ('Coverage actions', 'coverage_actions'),
+        ('Risk-transfer actions', 'risk_transfer_actions'),
+    ]
+    for title, key in recommendation_sections:
+        actions = assessment.get(key, [])
+        if actions:
+            st.markdown(f"**{title}:**")
+            for action in actions:
+                st.info(action)
+
+    confidence = assessment.get('simulation_confidence', {})
+    if confidence.get('simulation_years'):
+        st.caption(
+            f"Simulation confidence: {confidence['simulation_years']:,} years of "
+            f"{confidence['catalogue_years']:,} catalogue years "
+            f"({confidence['catalogue_coverage_pct']:.1f}% coverage). "
+            + ("Full catalogue run." if confidence['is_full_catalogue'] else "Sampled run; validate before booking.")
+        )
 
     with st.expander("📋 Detailed Limit & Premium Diagnostics"):
         diag_col1, diag_col2 = st.columns(2)
@@ -623,6 +655,8 @@ def render_single_airline_pricing(manager):
             use_fast=use_sampling,  # False for 100k (exact), True for <100k (sampled)
             sample_size=sample_size
         )
+        metrics['SimulationYears'] = len(annual_results)
+        metrics['CatalogueYears'] = num_years
         
         # Step 4: Finalizing (90% -> 100%)
         status_text.text(f"📊 Calculating risk metrics and premium... (90%)")
@@ -880,6 +914,8 @@ def render_all_airlines_pricing(manager):
                 use_fast=use_sampling,
                 sample_size=bulk_sample_size
             )
+            metrics['SimulationYears'] = len(annual_results)
+            metrics['CatalogueYears'] = num_years
             
             loss_ratio = (metrics['AAL'] / premium_calc['GrossPremium']) * 100
             rate_on_line = (premium_calc['GrossPremium'] / config_obj.total_tiv) * 100
