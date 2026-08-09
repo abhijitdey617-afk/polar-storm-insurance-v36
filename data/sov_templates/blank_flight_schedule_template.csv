@@ -1,0 +1,2 @@
+flight_id,airline,date,flight_no,origin,destination,aircraft_type,tech_type,tech_score,cost_multiplier,max_latitude,route_classification,departure_time,duration_hours,base_cost
+,,YYYY-MM-DD,,ICAO,ICAO,,LEO/GEO/HF,0.05,1.0,0.0,auto-calculated,HH:MM,0.0,6300

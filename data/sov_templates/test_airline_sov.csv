@@ -1,0 +1,16 @@
+airline_id,airline_name,flight_number,callsign,route,origin,destination,departure_time,latitude,longitude,altitude_ft,speed_knots,polar_zone,policy_coverage_usd,cost_per_hour_usd,notes
+United,United Airlines,UA890,UAL890,SFO-HKG,San Francisco,Hong Kong,2024-07-20 14:30,72.5,-156.8,39000,520,Arctic,2500000,15000,Trans-Pacific polar route - active
+United,United Airlines,UA857,UAL857,SFO-SIN,San Francisco,Singapore,2024-07-20 16:45,68.3,178.2,41000,535,Arctic,2200000,14000,Trans-Pacific via Arctic Circle
+United,United Airlines,UA179,UAL179,EWR-NRT,Newark,Tokyo,2024-07-20 12:15,75.8,-168.4,40000,528,Arctic,2400000,14500,Newark to Tokyo polar route
+Delta,Delta Air Lines,DL295,DAL295,DTW-ICN,Detroit,Seoul,2024-07-20 13:00,70.2,162.5,38000,515,Arctic,2300000,13500,Detroit-Seoul via North Pole
+Delta,Delta Air Lines,DL159,DAL159,SEA-HKG,Seattle,Hong Kong,2024-07-20 15:30,66.7,-175.3,39500,525,Arctic,2100000,13000,Seattle-Hong Kong Arctic route
+Delta,Delta Air Lines,DL287,DAL287,MSP-PVG,Minneapolis,Shanghai,2024-07-20 11:45,73.1,158.9,40500,530,Arctic,2450000,14200,Minneapolis-Shanghai over North Pole
+American,American Airlines,AA125,AAL125,DFW-PEK,Dallas,Beijing,2024-07-20 10:30,69.4,-172.6,38500,518,Arctic,2250000,13800,Dallas-Beijing polar crossing
+American,American Airlines,AA168,AAL168,ORD-PVG,Chicago,Shanghai,2024-07-20 14:00,71.8,165.3,39000,522,Arctic,2350000,14000,Chicago-Shanghai via Arctic
+American,American Airlines,AA280,AAL280,LAX-NRT,Los Angeles,Tokyo,2024-07-20 17:20,67.9,-178.5,40000,520,Arctic,2150000,13200,Los Angeles-Tokyo polar route
+United,United Airlines,UA98,UAL98,IAH-SYD,Houston,Sydney,2024-07-20 19:00,-62.3,145.7,38000,510,Antarctic,1800000,12000,Houston-Sydney via Antarctic Circle
+Delta,Delta Air Lines,DL41,DAL41,ATL-JNB,Atlanta,Johannesburg,2024-07-20 20:15,-64.8,12.3,39000,515,Antarctic,1950000,12500,Atlanta-Johannesburg Antarctic route
+American,American Airlines,AA50,AAL50,MIA-EZE,Miami,Buenos Aires,2024-07-20 21:30,-61.5,-58.2,37500,505,Antarctic,1750000,11800,Miami-Buenos Aires southern route
+United,United Airlines,UA2,UAL2,LAX-AKL,Los Angeles,Auckland,2024-07-20 22:00,-65.2,172.8,38500,512,Antarctic,1850000,12200,LAX-Auckland Antarctic crossing
+Delta,Delta Air Lines,DL201,DAL201,JFK-CPT,New York,Cape Town,2024-07-20 18:45,-63.7,18.9,39500,520,Antarctic,1900000,12400,JFK-Cape Town polar route
+American,American Airlines,AA996,AAL996,DFW-AKL,Dallas,Auckland,2024-07-20 23:15,-66.1,178.4,38000,508,Antarctic,1820000,12100,Dallas-Auckland via Antarctic

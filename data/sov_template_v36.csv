@@ -1,0 +1,2 @@
+flight_id,origin,destination,reroute_cost_usd,airline_id,route_name,flight_number,duration_hours,polar_hours,route_exposure
+EXAMPLE_001,JFK,HEL,25000.0,,,,,,

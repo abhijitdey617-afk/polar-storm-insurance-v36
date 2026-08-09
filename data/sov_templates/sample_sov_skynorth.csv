@@ -1,0 +1,13 @@
+flight_number,route_name,duration_hours,frequency_per_week
+SK901,CPH-JFK (Copenhagen-New York),8.5,14
+SK902,CPH-LAX (Copenhagen-Los Angeles),11.0,7
+SK903,OSL-EWR (Oslo-Newark),7.5,7
+SK904,ARN-ORD (Stockholm-Chicago),9.0,7
+SK905,ARN-SFO (Stockholm-San Francisco),10.5,3
+SK906,CPH-YVR (Copenhagen-Vancouver),9.5,5
+SK907,OSL-SEA (Oslo-Seattle),8.5,5
+SK908,ARN-IAD (Stockholm-Washington),9.5,4
+SK909,CPH-SFO (Copenhagen-San Francisco),11.0,3
+SK910,OSL-JFK (Oslo-New York),8.0,10
+SK911,ARN-BOS (Stockholm-Boston),8.5,5
+SK912,CPH-ORD (Copenhagen-Chicago),9.0,7
