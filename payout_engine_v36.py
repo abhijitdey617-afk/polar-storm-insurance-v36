@@ -928,6 +928,10 @@ def run_stochastic_pricing(
         sov_enriched = enrich_sov_route_exposure(sov)
     else:
         sov_enriched = sov
+    full_catalogue_years = np.arange(
+        int(stochastic_catalogue[year_col].min()),
+        int(stochastic_catalogue[year_col].max()) + 1,
+    )
     event_records, annual_records = [], []
 
     for year, year_events in stochastic_catalogue.groupby(year_col):
@@ -981,6 +985,24 @@ def run_stochastic_pricing(
 
     event_results = pd.DataFrame(event_records)
     annual_results = pd.DataFrame(annual_records)
+    target_years = set(full_catalogue_years)
+    simulated_years = set(annual_results[year_col].unique()) if not annual_results.empty else set()
+    missing_years = target_years - simulated_years
+    if missing_years:
+        annual_results = pd.concat([
+            annual_results,
+            pd.DataFrame([
+                {
+                    year_col: year,
+                    "annual_loss": 0.0,
+                    "oep_loss": 0.0,
+                    "ground_up_loss": 0.0,
+                    "ground_up_oep_loss": 0.0,
+                    "aggregate_exhausted": False,
+                }
+                for year in missing_years
+            ]),
+        ], ignore_index=True)
     return event_results, annual_results, calculate_pricing_metrics(annual_results, event_results)
 
 
