@@ -389,11 +389,7 @@ def render():
                         {
                             'Flight': fr.flight_id,
                             'Route': f"{fr.origin} → {fr.destination}",
-                            'Base Cost': fr.base_cost_usd,
-                            'Tier': fr.severity_tier,
-                            'Flight Loss': fr.flight_loss,
-                            'Status': fr.calculation_notes
-                        }
+                                        'Base Cost': fr.base_cost,
                         for fr in airline_result['flight_results']
                     ])
                     
@@ -461,7 +457,7 @@ def render():
                                     {
                                         'Flight': fr.flight_id,
                                         'Route': f"{fr.origin} → {fr.destination}",
-                                        'Base Cost': fr.base_cost_usd,
+                                        'Base Cost': fr.base_cost,
                                         'Tier': fr.severity_tier,
                                         'Flight Loss': fr.flight_loss,
                                         'Status': fr.calculation_notes
