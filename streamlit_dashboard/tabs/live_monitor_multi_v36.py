@@ -387,12 +387,12 @@ def render():
                 with st.expander("📊 Flight-Level Breakdown"):
                     flight_results_df = pd.DataFrame([
                         {
-                            'Flight': fr.flight_id,
-                            'Route': f"{fr.origin} → {fr.destination}",
-                            'Base Cost': fr.base_cost,
-                            'Tier': fr.severity_tier,
-                            'Flight Loss': fr.flight_loss,
-                            'Status': fr.calculation_notes
+                            'Flight': fr['flight_id'],
+                            'Route': f"{fr['origin']} → {fr['destination']}",
+                            'Base Cost': fr['base_cost'],
+                            'Tier': fr['severity_tier'],
+                            'Flight Loss': fr['flight_loss'],
+                            'Status': fr['calculation_notes']
                         }
                         for fr in airline_result['flight_results']
                     ])
